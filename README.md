@@ -1,2 +1,2 @@
 # data-playground
-experimenting and visualizing data on anything
+experimenting with and visualizing data on anything
