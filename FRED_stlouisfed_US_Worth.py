@@ -28,7 +28,6 @@ for key in wealth:
             df_wealth=pd.merge_asof(df_wealth, df, left_index=True, right_index=True, direction='nearest',tolerance=pd.Timedelta('1M'),)
         ###querry delay to avoid server block
         delay=np.random.rand(1)*10
-        print(key, delay)
         time.sleep(delay)
     except:
         pass
