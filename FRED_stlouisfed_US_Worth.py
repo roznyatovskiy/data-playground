@@ -4,6 +4,7 @@ import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
+import matplotlib as mpl
 
 api_key='YOURAPIKEY' ###key to lots of data at https://research.stlouisfed.org/
 fred = Fred(api_key=api_key)
