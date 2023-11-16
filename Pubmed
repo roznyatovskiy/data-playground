@@ -1,0 +1,110 @@
+import selenium
+import pickle
+import regex as re
+import numpy as np
+
+
+import pandas as pd
+from requests.adapters import HTTPAdapter, Retry
+import requests
+import time
+from tqdm import tqdm
+
+from datetime import datetime
+from selenium import webdriver
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+from webdriver_manager.chrome import ChromeDriverManager
+import undetected_chromedriver as uc  #https://github.com/ultrafunkamsterdam/undetected-chromedriver
+from bs4 import BeautifulSoup
+import requests
+
+papers_list=[]
+
+URLs=[
+    'https://pubmed.ncbi.nlm.nih.gov/?term=Mondor+breast+disease+ultrasound',
+    'https://pubmed.ncbi.nlm.nih.gov/?term=Mondor%20breast%20disease%20ultrasound&page=2',
+    'https://pubmed.ncbi.nlm.nih.gov/?term=Mondor%20breast%20disease%20ultrasound&page=3',
+    'https://pubmed.ncbi.nlm.nih.gov/?term=Mondor%20breast%20disease%20ultrasound&page=4',
+    'https://pubmed.ncbi.nlm.nih.gov/?term=Mondor%20breast%20disease%20ultrasound&page=5',
+    'https://pubmed.ncbi.nlm.nih.gov/?term=Mondor%20breast%20disease%20ultrasound&page=6',
+    'https://pubmed.ncbi.nlm.nih.gov/?term=Mondor%20breast%20disease%20ultrasound&page=7',
+]
+
+for URL in URLs:
+    
+    s = requests.Session()
+    retries = Retry(total=5, backoff_factor=1, status_forcelist=[ 502, 503, 504, 400, 404 ])
+    s.mount('http://', HTTPAdapter(max_retries=retries))
+    response = s.get(URL)
+    if response.status_code == 200:
+        pass
+    else:
+        print(response.status_code, response.reason)
+        print(response.json())
+        pass
+    soup = BeautifulSoup(response.text, 'html.parser')
+    for each_div in soup.findAll('a',{'class': re.compile('docsum-title*')}):
+    #     print('https://dl.acm.org' + each_div.a["href"], each_div.a["title"])
+        papers_list=papers_list+['https://pubmed.ncbi.nlm.nih.gov/' + each_div["href"]]
+
+
+
+df_master=pd.DataFrame()
+articles_scrapped=[]
+
+for j, article in tqdm(enumerate(papers_list[:])):
+#     print(j, 'out of', len(papers_list), article, end='\r')
+    driver.get(article)
+    locator='/html/body/div[5]/main/header/div[1]/div[3]/button'
+    try:
+        element = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.XPATH, locator  )))#makes sure it loads full list of references for each articles
+        element.click()
+    except:
+        pass
+        time.sleep(np.random.randint(low=3, high=10))
+        
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+
+    title=soup.find('h1', {'class': 'heading-title'}).text.strip()
+    
+    try:
+        abstract=soup.find('div', {'class': 'abstract-content selected'}).text.replace('   ','').strip().replace('\n','').strip('\n')
+    except:
+        abstract=None
+        pass
+    
+#     publicationdate=soup.find('span', {'class': 'secondary-date'}).text
+#     publicationdate=datetime.strptime(publicationdate, '%d %B %Y')
+    try:
+        url=soup.find('a', {'class': 'id-link'})['href']
+    except:
+        url=None
+        pass
+    
+    authors={} ###dictionary with author and affiliation pairs
+    for author in soup.findAll('span', {'class': 'authors-list-item'}):
+        try:
+            author_name=author.find('a', {'class': 'full-name'}).text
+        #     author_institution=author.find('a', {'class': 'affiliation-link'}).text
+            author_institution=author.find('a', {'class': 'affiliation-link'})['title']
+
+            authors.update({author_institution:author_name})
+    #         print(author_name, author_institution)
+        except Exception as e:
+#             print(e)
+            continue
+
+    df=pd.DataFrame.from_dict(authors, orient='index', columns=['author']).rename_axis('organization').reset_index()
+#     df['title'], df['url'], df['publicationdate'], df['abstract'] = [title, url, publicationdate, abstract]
+    df['title'], df['url'], df['abstract'] = [title, url, abstract]
+
+    df_master=pd.concat([df_master,df])
+
+    articles_scrapped=articles_scrapped+[article]
+
+
+df_master.to_csv('Mondoro_Pubmed_papers.csv')
